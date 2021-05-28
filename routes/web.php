@@ -15,21 +15,18 @@ use App\User;
 |
 */
 
-Route::get('/', function () {
-    return view('welcome');
-});
+Route::get('/importations', 'ImportationsController@index'
+);
 
-Route::get('/importations', function () {
-    // return "y";
-   return ImportationsDouane::all();
+// Route::get('/users', 'ImportationsController@index'
+// );
 
-});
-
-// Route::get('/users', function () {
-//     // return "y";
-//    return User::find(1);
-
+// Route::get('/', function () {
+//     return view('welcome');
 // });
 
-Route::get('/users', 'UserController@index'
-);
+
+
+
+
+
