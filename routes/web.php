@@ -15,8 +15,8 @@ use App\User;
 |
 */
 
-Route::get('/importations', 'ImportationsController@index'
-);
+// Route::get('/importations', 'ImportationsController@index'
+// );
 
 // Route::get('/users', 'ImportationsController@index'
 // );

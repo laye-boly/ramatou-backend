@@ -16,46 +16,53 @@ class ImportationsController extends Controller
      */
     public function index(Request $request)
     {
-        $filtres = $request->all();
+       
         $importations = DB::table("importations_douanes");
-        $groupBy = [];
-        if($filtres){
-            if(array_key_exists("level1", $filtres)){
-                /* Filtre généraliste qui considère toutes les valeurs du filtre Level1
-                Le filtre level1 concerne le regroupement du tonnage par certaines colonnes  : Exemple regroupe le tonnage
-                par  consignataires, pays_origine, ville_destination,  etc
-                */
-                $level1Filters = $request->input("level1");
-                $tabLevel1Filters = explode(";", $level1Filters);
-                $groupBy = $tabLevel1Filters;
-                $tabLevel1Filters[] = DB::raw("SUM(poids) AS poids");
-                $importations = $importations->select($tabLevel1Filters);
-            }
-            // On filtre le tonnage des marchandisses importés dans un interavlles de temps précisé par l'utilisateur
+        /*On filtre le tonnage des marchandisses importés dans un interavlles de temps précisé par l'utilisateur
             //Si l'utilisateur ne précise pas de dates, on considère l'intervalle de temps maximal (date la plus ancienne
             // à date la plus récente)
-            if(array_key_exists("dates", $filtres)){
-                $dates = $request->input("dates");
-                $dates = explode(";", $dates);
-                if($dates[0] !== "defaut"){
-                    $importations->where("date_arrivee", ">=", $dates[0]);
-                }
-                if($dates[1] !== "defaut"){
-                    $importations->where("date_arrivee", "<=", $dates[1]);
-                }
-            }
-            // On ajoute des filtres plus spécifiques: Par exemple on ne veut que le tonnage du consignataire M.S.C SENEGAL
-            // ou que des tonnages ou la ville de destination est dakar, etc
-            foreach ($filtres as $key => $filtre) {
-                if($key !== "dates" && $key !== "level1"){
-                    $importations->where($key, "like", "%.$filtre.%");
-                }
+        */
+        $dates = $request->input("dates");
+        $dates = explode(";", $dates);
+        if($dates[0] !== "defaut"){
+            $importations = $importations->where("date_arrivee", ">=", $dates[0]);
+        }
+        if($dates[1] !== "defaut"){
+            $importations = $importations->where("date_arrivee", "<=", $dates[1]);
+        }
+        $filtres = $request->all();
+        // Si on a que le fitre dates (tjrs présent), on retourne le tonnage des marchandise importées durant
+        // l'intervalle de temps indiqué
+        if(count($filtres) == 1){
+            return $importations->sum("poids");
+        }
 
+        $groupBy = []; // tableau de colonnnes sur lesquelles on va grouper la somme du tonnage des marchandises
+        /*
+            Filtre généraliste qui considère toutes les valeurs du filtre Level1
+            Le filtre level1 concerne le regroupement du tonnage par certaines colonnes  : Exemple regroupe le tonnage
+            par  consignataires, pays_origine, ville_destination,  etc
+        */
+
+        if(array_key_exists("level1", $filtres)){
+            $level1Filters = $request->input("level1");
+            $tabLevel1Filters = explode(";", $level1Filters);
+            $groupBy = $tabLevel1Filters;
+            $tabLevel1Filters[] = DB::raw("SUM(poids) AS poids");
+            $importations = $importations->select($tabLevel1Filters);
+        }
+
+        // On ajoute des filtres plus spécifiques: Par exemple on ne veut que le tonnage du consignataire M.S.C SENEGAL
+        // ou que des tonnages ou la ville de destination est dakar, etc
+        foreach ($filtres as $key => $filtre) {
+            if($key !== "dates" && $key !== "level1"){
+                    $importations->where($key, "like", "%.$filtre.%");
             }
-            // On définit le groupe du tonnage des marchandises avec le filtre de niveau 1 (level1)
-            if($groupBy){
-                $importations->groupBy($groupBy);
-            }
+
+        }
+        // On définit le groupe du tonnage des marchandises avec le filtre de niveau 1 (level1)
+        if($groupBy){
+            $importations->groupBy($groupBy);
         }
 
         // $importations = DB::table("importations_douanes")
