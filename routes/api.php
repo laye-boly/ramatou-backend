@@ -23,12 +23,15 @@ Route::post('/login', 'AuthController@login'
 );
 Route::get('/importations', 'ImportationsController@index');
 
+// retourne les filtres sur les données de la douanes
+Route::get('/filtres/douane', 'FiltreDouaneController@index'
+);
 
 // Protection des routes avec un user qui n'a pas le bon tokens
-Route::group(['middleware' => ['auth:sanctum']], function () {
+/*Route::group(['middleware' => ['auth:sanctum']], function () {
     //Route::get('/importations', 'ImportationsController@index');
     Route::post('/logout', 'AuthController@logout');
-});
+}); */
 
 Route::middleware('auth:api')->get('/user', function (Request $request) {
     return $request->user();
