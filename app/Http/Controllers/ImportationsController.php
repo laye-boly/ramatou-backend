@@ -24,17 +24,21 @@ class ImportationsController extends Controller
         */
         $dates = $request->input("dates");
         $dates = explode(";", $dates);
-        if($dates[0] !== "defaut"){
+        if($dates[0] !== "null" && $dates[1] !== "null"){
             $importations = $importations->where("date_arrivee", ">=", $dates[0]);
-        }
-        if($dates[1] !== "defaut"){
             $importations = $importations->where("date_arrivee", "<=", $dates[1]);
+        }
+        else {
+            return ["Précisez un intervalle de temps"];
         }
         $filtres = $request->all();
         // Si on a que le fitre dates (tjrs présent), on retourne le tonnage des marchandise importées durant
         // l'intervalle de temps indiqué
         if(count($filtres) == 1){
-            return $importations->sum("poids");
+            return [
+                ["poids des marchandise importes" => ""],
+                ["poids" => $importations->sum("poids")]
+            ];
         }
 
         $groupBy = []; // tableau de colonnnes sur lesquelles on va grouper la somme du tonnage des marchandises
