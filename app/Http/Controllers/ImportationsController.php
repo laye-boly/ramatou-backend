@@ -5,19 +5,81 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 
 use App\Models\ImportationsDouane;
+use App\Models\ImportationsBSC;
+
 use Illuminate\Support\Facades\DB;
 
 class ImportationsController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Retourne poids marchandises douanes
      *
      * @return \Illuminate\Http\Response
      */
-    public function index(Request $request)
+    public function getPoidsDouanes(Request $request)
     {
-       
-        $importations = DB::table("importations_douanes");
+
+        return $this->getQuery($request, "importations_douanes", "poids");
+    }
+
+    /**
+     * retourn l'insight le nombre conteneur   | douanes  *
+     * @return \Illuminate\Http\Response
+     */
+    public function getNombreConteneurDouanes(Request $request)
+    {
+        return $this->getQuery($request, "importations_douanes", "conteneur");
+
+    }
+
+    /**
+     * Retourne les temps de voyage des marchandises | donnees Douanes
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function getTravelTimeDouane(Request $request)
+    {
+
+            return DB::table('importations_douanes')
+                ->selectRaw('marchandise, datediff(date_arrivee, date_embarquement) as temps_voyage')
+                // ->whereRaw('datediff(created_at, now()) > ?', [-99])
+                ->get();
+
+    }
+
+    /**
+     * Retourne poids marchandises BSC
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function getPoidsBSC(Request $request)
+    {
+
+        return $this->getQuery($request, "importations_bscs", "tonnage");
+    }
+
+    /**
+     * retourn l'insight le nombre conteneur   | BSC  *
+     * @return \Illuminate\Http\Response
+     */
+    public function getNombreConteneurBSC(Request $request)
+    {
+        return $this->getQuery($request, "importations_bscs", "conteneur");
+
+    }
+
+    public function getNombreVehiculeBSC(Request $request){
+        $nombreTonne = $request->input("nombre_tonne");
+        return DB::table("importations_bscs")
+                    ->where("type_conditionnement", "like", "%vehicule%")
+                    ->where("type_conditionnement", "like", "%".$nombreTonne."%")
+                    ->count("type_conditionnement");
+    }
+
+    private function getQuery(Request $request, $table, $insight)
+    {
+        $importations = DB::table($table);
         /*On filtre le tonnage des marchandisses importés dans un interavlles de temps précisé par l'utilisateur
             //Si l'utilisateur ne précise pas de dates, on considère l'intervalle de temps maximal (date la plus ancienne
             // à date la plus récente)
@@ -34,10 +96,30 @@ class ImportationsController extends Controller
         $filtres = $request->all();
         // Si on a que le fitre dates (tjrs présent), on retourne le tonnage des marchandise importées durant
         // l'intervalle de temps indiqué
-        if(count($filtres) == 1){
+        if(count($filtres) == 1 && $insight == "poids"){
             return [
                 ["poids des marchandise importes" => ""],
                 ["poids" => $importations->sum("poids")]
+            ];
+        }else if(count($filtres) == 1 && $insight == "tonnage"){
+            return [
+                ["poids des marchandise importes" => ""],
+                ["poids" => $importations->sum("tonnage")]
+            ];
+        }else if(count($filtres) == 1 && $insight == "fret"){
+            return [
+                ["le fret moyen" => "nn"],
+                ["moyenne du fret" => $importations->avg("fret")]
+            ];
+        }else if(count($filtres) == 1 && $insight == "conteneur" && $table == "importations_douanes"){
+            return [
+                ["nombre de conteneur importés" => "nn"],
+                ["nombre de conteneur" => $importations->count("nbre_conteneur")]
+            ];
+        }else if(count($filtres) == 1 && $insight == "conteneur" && $table == "importations_bscs"){
+            return [
+                ["nombre de conteneur importés" => "nn"],
+                ["nombre de conteneur" => $importations->count("quantite_conditionnement")]
             ];
         }
 
@@ -52,7 +134,17 @@ class ImportationsController extends Controller
             $level1Filters = $request->input("level1");
             $tabLevel1Filters = explode(";", $level1Filters);
             $groupBy = $tabLevel1Filters;
-            $tabLevel1Filters[] = DB::raw("SUM(poids) AS poids");
+            if($insight == "poids" ){
+                $tabLevel1Filters[] = DB::raw("SUM(poids) AS poids");
+            }else if($insight == "tonnage"){
+                $tabLevel1Filters[] = DB::raw("SUM(tonnage) AS poids");
+            }else if($insight == "fret"){
+                $tabLevel1Filters[] = DB::raw("AVG(fret) AS 'moyenne du fret'");
+            }else if($insight == "conteneur" && $table == "importations_douanes"){
+                $tabLevel1Filters[] = DB::raw("count(nbre_conteneur) AS 'nombre de conteneur'");
+            }else if($insight == "conteneur" && $table == "importations_bscs"){
+                $tabLevel1Filters[] = DB::raw("count(quantite_conditionnement) AS 'nombre de conteneur'");
+            }
             $importations = $importations->select($tabLevel1Filters);
         }
 
@@ -68,82 +160,8 @@ class ImportationsController extends Controller
         if($groupBy){
             $importations->groupBy($groupBy);
         }
-
-        // $importations = DB::table("importations_douanes")
-        //     // ->select(["consignataire", "pays_destination", DB::raw("SUM(poids) AS poids")])
-        //     ->select(["consignataire", "pays_destination", DB::raw("SUM(poids) AS poids")])
-        //     ->where("pays_destination", "like", "%al%")
-        //     ->groupBy("consignataire", "pays_destination")
-        //      ->get()
-
-
-
         return $importations->get();
+
     }
 
-    /**
-     * Show the form for creating a new resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
-    public function create()
-    {
-        //
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
-     */
-    public function store(Request $request)
-    {
-        //
-    }
-
-    /**
-     * Display the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function show($id)
-    {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function edit($id)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function update(Request $request, $id)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function destroy($id)
-    {
-        //
-    }
 }

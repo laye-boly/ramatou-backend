@@ -21,15 +21,20 @@ Route::post('/register', 'AuthController@register'
 );
 Route::post('/login', 'AuthController@login'
 );
-Route::get('/importations', 'ImportationsController@index');
+Route::get('/importations/douanes', 'ImportationsController@getPoidsDouanes');
+Route::get('/nombre/conteneur/douanes', 'ImportationsController@getNombreConteneurDouanes');
+Route::get('/temps/voyage/douanes', 'ImportationsController@getTravelTimeDouane');
+Route::get('/importations/bsc', 'ImportationsController@getPoidsBSC');
+Route::get('/nombre/conteneur/bsc', 'ImportationsController@getNombreConteneurBSC');
+Route::get('/nombre/vehicule/bsc', 'ImportationsController@getNombreVehiculeBSC');
 
 // retourne les filtres sur les données de la douanes
-Route::get('/filtres/douane', 'FiltreDouaneController@index'
-);
+Route::get('/filtres/douanes', 'FiltreController@getFiltreDouanes');
+Route::get('/filtres/bsc', 'FiltreController@getFiltreBSC');
 
 // Protection des routes avec un user qui n'a pas le bon tokens
 /*Route::group(['middleware' => ['auth:sanctum']], function () {
-    //Route::get('/importations', 'ImportationsController@index');
+    //Route::get('/importations', 'ImportationsController@getPoidsDouanes');
     Route::post('/logout', 'AuthController@logout');
 }); */
 
