@@ -27,6 +27,7 @@ Route::get('/temps/voyage/douanes', 'ImportationsController@getTravelTimeDouane'
 Route::get('/importations/bsc', 'ImportationsController@getPoidsBSC');
 Route::get('/nombre/conteneur/bsc', 'ImportationsController@getNombreConteneurBSC');
 Route::get('/nombre/vehicule/bsc', 'ImportationsController@getNombreVehiculeBSC');
+Route::get('/fret/bsc', 'ImportationsController@getFretBSC');
 
 // retourne les filtres sur les données de la douanes
 Route::get('/filtres/douanes', 'FiltreController@getFiltreDouanes');

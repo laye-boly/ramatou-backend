@@ -43,6 +43,10 @@ class ImportationsController extends Controller
 
             return DB::table('importations_douanes')
                 ->selectRaw('marchandise, datediff(date_arrivee, date_embarquement) as temps_voyage')
+                ->orderBy('date_arrivee', 'desc')
+                 ->limit(30)
+                // ->where("date_arrivee", "<=", "2021-04-16")
+                // ->where("date_arrivee", ">=", "2021-03-08")
                 // ->whereRaw('datediff(created_at, now()) > ?', [-99])
                 ->get();
 
@@ -69,12 +73,31 @@ class ImportationsController extends Controller
 
     }
 
+    /**
+     * retourn l'insight le nombre conteneur   | BSC  *
+     * @return \Illuminate\Http\Response
+     */
+    public function getFretBSC(Request $request)
+    {
+        return $this->getQuery($request, "importations_bscs", "fret");
+
+    }
+
     public function getNombreVehiculeBSC(Request $request){
         $nombreTonne = $request->input("nombre_tonne");
-        return DB::table("importations_bscs")
-                    ->where("type_conditionnement", "like", "%vehicule%")
-                    ->where("type_conditionnement", "like", "%".$nombreTonne."%")
-                    ->count("type_conditionnement");
+        $vehicules = DB::table("importations_bscs")
+                    ->where("poids_vehicule", "<=", $nombreTonne)
+                    ;
+
+        $dates = $request->input("dates");
+        $dates = explode(";", $dates);
+        if($dates[0] !== "null" && $dates[1] !== "null"){
+            $vehicules = $vehicules->where("date_depart_navire", ">=", $dates[0]);
+            $vehicules = $vehicules->where("date_depart_navire", "<=", $dates[1]);
+        }
+        return [
+            ["vehicule" => $vehicules->count("type_conditionnement")]
+        ];
     }
 
     private function getQuery(Request $request, $table, $insight)
@@ -86,15 +109,20 @@ class ImportationsController extends Controller
         */
         $dates = $request->input("dates");
         $dates = explode(";", $dates);
-        if($dates[0] !== "null" && $dates[1] !== "null"){
+        if($dates[0] !== "null" && $dates[1] !== "null" && $table == "importations_douanes"){
             $importations = $importations->where("date_arrivee", ">=", $dates[0]);
             $importations = $importations->where("date_arrivee", "<=", $dates[1]);
+
+        }else if($dates[0] !== "null" && $dates[1] !== "null" && $table == "importations_bscs"){
+            $importations = $importations->where("date_depart_navire", ">=", $dates[0]);
+            $importations = $importations->where("date_depart_navire", "<=", $dates[1]);
         }
         else {
             return ["Précisez un intervalle de temps"];
         }
         $filtres = $request->all();
-        // Si on a que le fitre dates (tjrs présent), on retourne le tonnage des marchandise importées durant
+        // Si on a que le fitre dates (tjrs présent) (dans ce cas le tableau $filtre ne contient 
+        // qu'un seul élément), on retourne le tonnage des marchandise importées durant
         // l'intervalle de temps indiqué
         if(count($filtres) == 1 && $insight == "poids"){
             return [
@@ -108,18 +136,25 @@ class ImportationsController extends Controller
             ];
         }else if(count($filtres) == 1 && $insight == "fret"){
             return [
-                ["le fret moyen" => "nn"],
+                ["le fret moyen" => ""],
                 ["moyenne du fret" => $importations->avg("fret")]
             ];
-        }else if(count($filtres) == 1 && $insight == "conteneur" && $table == "importations_douanes"){
+        }else if(count($filtres) == 2 && $insight == "conteneur" && $table == "importations_douanes" && array_key_exists("taille_conteneur", $filtres) ){
+
+            $tailleConteneur = $request->input("taille_conteneur");
+            
             return [
                 ["nombre de conteneur importés" => "nn"],
-                ["nombre de conteneur" => $importations->count("nbre_conteneur")]
+                ["nombre de conteneur" => $importations->where("taille_conteneur", "=", $tailleConteneur)->sum("nbre_conteneur")]
             ];
-        }else if(count($filtres) == 1 && $insight == "conteneur" && $table == "importations_bscs"){
+                       
+            
+        }else if(count($filtres) == 2 && $insight == "conteneur" && $table == "importations_bscs" && array_key_exists("type_conditionnement", $filtres)){
+
+            $typeConditionnement = $request->input("type_conditionnement");
             return [
                 ["nombre de conteneur importés" => "nn"],
-                ["nombre de conteneur" => $importations->count("quantite_conditionnement")]
+                ["nombre de conteneur" => $importations->where("type_conditionnement", "like", "%$typeConditionnement PIEDS%")->sum("quantite_conditionnement")]
             ];
         }
 
@@ -141,18 +176,42 @@ class ImportationsController extends Controller
             }else if($insight == "fret"){
                 $tabLevel1Filters[] = DB::raw("AVG(fret) AS 'moyenne du fret'");
             }else if($insight == "conteneur" && $table == "importations_douanes"){
-                $tabLevel1Filters[] = DB::raw("count(nbre_conteneur) AS 'nombre de conteneur'");
+                $tailleConteneur = $request->input("taille_conteneur");
+                if($tailleConteneur == "20"){
+                    // return 20;
+                    $tabLevel1Filters[] = DB::raw("SUM(nbre_vingt_pieds) AS 'nombre de conteneur'");
+                }else if($tailleConteneur == "40"){
+                    $tabLevel1Filters[] = DB::raw("SUM(nbre_quarante_pieds) AS 'nombre de conteneur'");
+                }if($tailleConteneur == "45"){
+                    $tabLevel1Filters[] = DB::raw("SUM(nbre_quarante_cinq_pieds) AS 'nombre de conteneur'");
+                }
+               
             }else if($insight == "conteneur" && $table == "importations_bscs"){
-                $tabLevel1Filters[] = DB::raw("count(quantite_conditionnement) AS 'nombre de conteneur'");
+                $tabLevel1Filters[] = DB::raw("SUM(quantite_conditionnement) AS 'nombre de conteneur'");
             }
+            //On retourne le nombre de conteneur par taille (20 pieds, 40 ou 45 pieds)
+            // if($insight == "conteneur"){
+
+            //     if($table == "importations_douanes"){
+            //         $tailleConteneur = $request->input("taille_conteneur");
+            //         $importations = $importations->where("taille_conteneur", "=", $tailleConteneur);
+            //         return $tailleConteneur;
+            //     }
+                 
+            // }
             $importations = $importations->select($tabLevel1Filters);
         }
 
         // On ajoute des filtres plus spécifiques: Par exemple on ne veut que le tonnage du consignataire M.S.C SENEGAL
         // ou que des tonnages ou la ville de destination est dakar, etc
         foreach ($filtres as $key => $filtre) {
-            if($key !== "dates" && $key !== "level1"){
-                    $importations->where($key, "like", "%.$filtre.%");
+            if($key !== "dates" && $key !== "level1" && $key !== "taille_conteneur"){
+                if($key == "type_conditionnement"){
+                    $importations->where($key, "like", "%$filtre PIEDS%");
+                }else{
+                     $importations->where($key, "like", "%$filtre%");
+                }
+            
             }
 
         }
